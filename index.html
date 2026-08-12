@@ -207,132 +207,97 @@ footer{text-align:center;color:#555;font:9px JetBrains Mono;padding:16px}
 
 <div id="yt-player-wrap">
   <div class="yt-label">🎵 NIRAHUA RICKSHAW RADIO</div>
-  <div id="yt-player"></div>
-</div>
+  </div>
 
 <script>
-const DEFAULT_PLAYLIST="PLRgVwTJfdo7stV2CTLSLQYZOeDNd5XK_j";
-let PLAYLIST_ID=localStorage.getItem("nirahuaPlaylist")||DEFAULT_PLAYLIST;
-let player=null, playing=false, timer=null, fare=20, farePaid=false;
+const PLAYLIST_ID = "PLRgVwTJfdo7stV2CTLSLQYZOeDNd5XK_j";
+const $ = id => document.getElementById(id);
 
-const $=id=>document.getElementById(id);
-function clock(){ $("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}); }
-clock();setInterval(clock,30000);
-
-function fmt(s){if(!isFinite(s)||s<0)s=0;return Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0")}
-function extractPlaylist(v){
-  try{let u=new URL(v);return u.searchParams.get("list")||v.trim()}catch(e){return v.trim()}
+function clock() {
+  $("clock").textContent = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
 }
-function setPlaylist(id){
-  id=extractPlaylist(id); if(!id)return;
-  PLAYLIST_ID=id;
-  localStorage.setItem("nirahuaPlaylist",id);
-  $("playlistFrame").src="https://www.youtube.com/embed?listType=playlist&list="+encodeURIComponent(id)+"&rel=0";
-  if(player){
-    player.loadPlaylist({list:id});
-    setTimeout(update,500);
-  }
+clock();
+setInterval(clock, 30000);
+
+const frame = $("playlistFrame");
+const box = $("playlistBox");
+const playlistUrl = "https://www.youtube.com/embed/videoseries?list=" + PLAYLIST_ID + "&rel=0";
+
+function loadPlaylist() {
+  frame.src = playlistUrl;
+}
+loadPlaylist();
+
+$("playlistBtn").onclick = () => {
+  box.classList.toggle("show");
+  if (box.classList.contains("show")) loadPlaylist();
+};
+
+$("loadPlaylist").onclick = () => {
+  const value = $("playlistInput").value.trim();
+  let id = value;
+  try {
+    const u = new URL(value);
+    id = u.searchParams.get("list") || value;
+  } catch(e) {}
+  if (!id) return;
+  localStorage.setItem("nirahuaPlaylist", id);
+  frame.src = "https://www.youtube.com/embed/videoseries?list=" + encodeURIComponent(id) + "&rel=0";
   toast("Playlist loaded 🎶");
-}
-$("loadPlaylist").onclick=()=>setPlaylist($("playlistInput").value);
-$("playlistBtn").onclick=()=>{
-  $("playlistBox").scrollIntoView({behavior:"smooth",block:"center"});
 };
 
-function toast(t){$("toast").textContent=t;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),1900)}
+const saved = localStorage.getItem("nirahuaPlaylist");
+if (saved) frame.src = "https://www.youtube.com/embed/videoseries?list=" + encodeURIComponent(saved) + "&rel=0";
 
-window.onYouTubeIframeAPIReady=function(){
-  player=new YT.Player("yt-player",{
-    width:"100%",
-    height:"245",
-    playerVars:{
-      listType:"playlist",
-      list:PLAYLIST_ID,
-      playsinline:1,
-      controls:1,
-      rel:0,
-      modestbranding:1,
-      origin:location.origin
-    },
-    events:{
-      onReady:ready,
-      onStateChange:state,
-      onError:ytError
-    }
-  });
+$("play").onclick = () => {
+  box.classList.add("show");
+  frame.scrollIntoView({behavior:"smooth", block:"center"});
+  toast("Use the YouTube ▶ button to start the ride 🎵");
+};
+$("prev").onclick = () => {
+  toast("Previous track is available in the YouTube player ⏮");
+};
+$("next").onclick = () => {
+  toast("Next track is available in the YouTube player ⏭");
+};
+$("progress").disabled = true;
+
+let fare = 20;
+$("horn").onclick = () => {
+  toast("POOOON POOON! 📣");
+  document.body.animate(
+    [{filter:"brightness(1)"},{filter:"brightness(1.35)"},{filter:"brightness(1)"}],
+    250
+  );
 };
 
-function ready(){
-  update();
-  $("playlistFrame").src="https://www.youtube.com/embed?listType=playlist&list="+encodeURIComponent(PLAYLIST_ID)+"&rel=0";
-}
+$("tipBtn").onclick = () => {
+  $("fareText").textContent = "Driver says: 'Bhaiya, thoda tip bhi de do!' 🛺";
+  $("payFare").textContent = "Pay Fare ₹" + fare;
+  $("tipRow").classList.add("show");
+  $("fareModal").classList.add("show");
+};
 
-function state(e){
-  if(e.data===YT.PlayerState.PLAYING){
-    playing=true;
-    $("play").textContent="Ⅱ";
-    $("disc").classList.add("spin");
-    $("cabin").classList.add("playing");
-    startLoop();
-    update();
-  }
-  if(e.data===YT.PlayerState.PAUSED){
-    playing=false;
-    $("play").textContent="▶";
-    $("disc").classList.remove("spin");
-    $("cabin").classList.remove("playing");
-    stopLoop();
-  }
-  if(e.data===YT.PlayerState.ENDED){
-    playing=false;
-    $("play").textContent="▶";
-    $("disc").classList.remove("spin");
-    $("cabin").classList.remove("playing");
-    stopLoop();
-    finishSong();
-    setTimeout(update,300);
-  }
-  if(e.data===YT.PlayerState.CUED) update();
-}
+$("payFare").onclick = () => {
+  $("payFare").textContent = "✓ Fare Paid";
+  $("tipRow").classList.add("show");
+  toast("Fare paid! Driver khush 😄");
+};
 
-function ytError(e){
-  const codes={2:"Invalid YouTube playlist/video ID.",5:"HTML5 player error.",100:"Video not found or private.",101:"This video does not allow embedding.",150:"This video does not allow embedding."};
-  $("title").textContent="YouTube couldn't play this track";
-  $("sub").textContent=codes[e.data]||("YouTube error "+e.data);
-  toast("YouTube playback error: "+(codes[e.data]||e.data));
+$("closeFare").onclick = () => $("fareModal").classList.remove("show");
+
+document.querySelectorAll(".tip").forEach(b => {
+  b.onclick = () => {
+    toast("₹" + b.dataset.tip + " tip sent! ❤️");
+    $("fareModal").classList.remove("show");
+  };
+});
+
+function toast(t) {
+  $("toast").textContent = t;
+  $("toast").classList.add("show");
+  setTimeout(() => $("toast").classList.remove("show"), 1900);
 }
-function update(){
- try{
-  const d=player.getVideoData(), idx=player.getPlaylistIndex(), list=player.getPlaylist();
-  $("title").textContent=d?.title||"Nirahua Rickshaw Wala Radio";
-  $("sub").textContent=d?.author||"पुराने गाने, नई सवारी";
-  $("trackCount").textContent=idx>=0&&list?"TRACK "+(idx+1)+" / "+list.length:"TRACK --";
-  $("dur").textContent=fmt(player.getDuration());
- }catch(e){}
-}
-function startLoop(){stopLoop();timer=setInterval(()=>{
- try{let c=player.getCurrentTime(),d=player.getDuration();$("cur").textContent=fmt(c);$("dur").textContent=fmt(d);$("progress").value=d?(c/d)*100:0;
-   if(d>0){fare=Math.min(99,20+Math.floor((c/d)*25));$("fareDisplay").textContent="₹ "+fare.toFixed(2)}
- }catch(e){}
-},300)}
-function stopLoop(){clearInterval(timer)}
-$("play").onclick=()=>{if(!player)return;playing?player.pauseVideo():player.playVideo()}
-$("next").onclick=()=>{player?.nextVideo();setTimeout(update,350)}
-$("prev").onclick=()=>{player?.previousVideo();setTimeout(update,350)}
-$("progress").oninput=e=>{if(player){let d=player.getDuration();player.seekTo(d*(e.target.value/100),true)}}
-$("horn").onclick=()=>{toast("POOOON POOON! 📣");document.body.animate([{filter:"brightness(1)"},{filter:"brightness(1.4)"},{filter:"brightness(1)"}],250)}
-function finishSong(){
- farePaid=false;$("fareText").textContent="Gaana khatam — driver is waiting for the fare. Meter says ₹"+fare.toFixed(2)+".";
- $("payFare").textContent="Pay Fare ₹"+fare.toFixed(0);$("tipRow").classList.remove("show");$("fareModal").classList.add("show");
-}
-$("payFare").onclick=()=>{farePaid=true;$("payFare").textContent="✓ Fare Paid";$("tipRow").classList.add("show");toast("Fare paid! Driver khush 😄")}
-$("closeFare").onclick=()=>$("fareModal").classList.remove("show");
-document.querySelectorAll(".tip").forEach(b=>b.onclick=()=>{toast("₹"+b.dataset.tip+" tip sent! ❤️");$("fareModal").classList.remove("show")});
-setPlaylist(PLAYLIST_ID);
-const api=document.createElement("script");
-api.src="https://www.youtube.com/iframe_api";
-api.onerror=()=>toast("Could not load YouTube player");
-document.body.appendChild(api);
 </script>
 </body>
 </html>
